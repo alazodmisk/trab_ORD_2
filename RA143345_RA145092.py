@@ -7,27 +7,89 @@ import os
 import sys
 import struct
 
-
+RRN_MAIOR: int = 0
 ORDEM: int = 0 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
+fmtChave = "HH"
+fmtPagina = f"HB{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 
 class Chave:
-    id: int
-    offset: int
+    def __init__(self) -> None:
+        id: int = NULO
+        offset: int = NULO
 
 class Pagina:
-    def __init__(self) -> None:
+    def __init__(self, rrn: int) -> None:
+        self.rrn: int = rrn
         self.numChaves: int = 0
-        self.chaves: list[int|Chave] = [NULO] * (ORDEM - 1)
-        self.filhos: list = [NULO] * ORDEM
+        self.chaves: list[Chave] = [Chave] * (ORDEM - 1)
+        self.filhos: list = [-1] * ORDEM
 
 
-def insercao(arvore: list[Pagina], novoRegistro: Chave):
+def insercao(pag: Pagina):
+    if pag.numChaves == ORDEM - 1:
+        divisao_promocao()
     return None
 
+
+def insereNaArvore(chave: Chave, rrnAtual: int, pag: Pagina):
+    if rrnAtual == None:
+        chavePro = chave
+        filhoDpro = None
+        return chavePro, filhoDpro, True
+    else:
+        achou, pos = buscaNaPagina(chave, pag)
+
+    if achou:
+        print("Chave duplicada")
+        return
+    
+    chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos])
+
+    if promo == False:
+        return None, None, False
+    else:
+        if pag.numChaves <= ORDEM:
+            pag.chaves.append(chavePro)
+            pag.filhos.append(filhoDpro)
+            ##escrever pagina no arquivo na posição rrnAtual
+            return None, None, False
+        else:
+            return chavePro, filhoDpro, True
+
+def buscaNaPagina(chave: Chave, pag: Pagina):
+    pos = 0
+    while(pos < pag.numChaves and chave > pag.chaves[pos]):
+        pos += 1
+    if pos < pag.numChaves and chave == pag.chaves[pos]:
+        return True, pos
+    else:
+        return False, pos
+
+
+def buscaNaArvore(chave, rrn):
+    if rrn == None:
+        return False, None, None
+    else:
+        ## Aqui tem que ler a pagina para uma variavel chamada pag
+        ## Para isso preciso saber como que a página vai estar armazenada em um arquivo
+        achou, pos = buscaNaPagina(chave, pag)
+        if achou:
+            return True, rrn, pos
+        else:
+            return buscaNaArvore(chave, pag.filhos[pos])
+
+
+def divisao_promocao(pagPai: Pagina, posicao_filho: int, pagFilho: Pagina):
+    
+
+    return None 
+
+
 def construir_indices():
-    paginas: list[Pagina] =  []
+    raiz: Pagina = Pagina(0)
+    paginas: list[Pagina] = [raiz]
     offset = 0
 
     with open('games.dat', 'rb') as games:
@@ -41,19 +103,19 @@ def construir_indices():
             indice = int(registro[0])
 
             insercao(paginas, Chave(indice, offset))
-            offset += tam + 2()
+            offset += tam + 2
 
             buffer = games.read(2)
 
     with open("btree.dat", "wb") as arvoreB:
         for i in paginas:
-            linha = struct.pack("I", i.numChaves)
+            linha = struct.pack("HB", i.rrn, i.numChaves)
 
             for j in i.chaves:
-                linha += struct.pack("II", j.id, j.offset)
+                linha += struct.pack(fmtChave, j.id, j.offset)
             
             for k in i.filhos:
-                linha += struct.pack("I", k)
+                linha += struct.pack("H", k)
 
 
             arvoreB.write(linha)
@@ -63,7 +125,8 @@ def construir_indices():
 def carrega_paginas() -> list[Pagina]:
     return list[Pagina]
 
-def insercao():
+
+def insercao(arvore: list[Pagina], novoRegistro: Chave):
     return None
 
 def busca():
