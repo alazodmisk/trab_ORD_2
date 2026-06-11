@@ -16,51 +16,44 @@ fmtPagina = f"HB{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 
 class Chave:
     def __init__(self) -> None:
-        id: int = NULO
-        offset: int = NULO
+        self.id: int = NULO
+        self.offset: int = NULO
 
 class Pagina:
     def __init__(self, rrn: int) -> None:
         self.rrn: int = rrn
         self.numChaves: int = 0
-        self.chaves: list[Chave] = [Chave] * (ORDEM - 1)
+        self.chaves: list[Chave] = [Chave()] * (ORDEM - 1)
         self.filhos: list = [-1] * ORDEM
 
 
-def insercao(pag: Pagina):
-    if pag.numChaves == ORDEM - 1:
-        divisao_promocao()
-    return None
-
-
-def insereNaArvore(chave: Chave, rrnAtual: int, pag: Pagina):
+def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
     if rrnAtual == None:
         chavePro = chave
         filhoDpro = None
         return chavePro, filhoDpro, True
     else:
-        achou, pos = buscaNaPagina(chave, pag)
+        achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
 
     if achou:
         print("Chave duplicada")
-        return
+        return None, None, False
     
-    chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos])
+    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
     if promo == False:
         return None, None, False
     else:
-        if pag.numChaves <= ORDEM:
-            pag.chaves.append(chavePro)
-            pag.filhos.append(filhoDpro)
-            ##escrever pagina no arquivo na posição rrnAtual
+        if paginas[rrnAtual].numChaves <= ORDEM:
+            paginas[rrnAtual].chaves.append(chavePro)
+            paginas[rrnAtual].filhos.append(filhoDpro)
             return None, None, False
         else:
             return chavePro, filhoDpro, True
 
 def buscaNaPagina(chave: Chave, pag: Pagina):
     pos = 0
-    while(pos < pag.numChaves and chave > pag.chaves[pos]):
+    while(pos < pag.numChaves and chave.id > pag.chaves[pos].id):
         pos += 1
     if pos < pag.numChaves and chave == pag.chaves[pos]:
         return True, pos
@@ -68,23 +61,16 @@ def buscaNaPagina(chave: Chave, pag: Pagina):
         return False, pos
 
 
-def buscaNaArvore(chave, rrn):
-    if rrn == None:
+def buscaNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
+    if rrnAtual == None:
         return False, None, None
     else:
-        ## Aqui tem que ler a pagina para uma variavel chamada pag
-        ## Para isso preciso saber como que a página vai estar armazenada em um arquivo
-        achou, pos = buscaNaPagina(chave, pag)
+        achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
         if achou:
-            return True, rrn, pos
+            return True, rrnAtual, pos
         else:
-            return buscaNaArvore(chave, pag.filhos[pos])
+            return buscaNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
-
-def divisao_promocao(pagPai: Pagina, posicao_filho: int, pagFilho: Pagina):
-    
-
-    return None 
 
 
 def construir_indices():
@@ -123,7 +109,7 @@ def construir_indices():
 
 
 def carrega_paginas() -> list[Pagina]:
-    return list[Pagina]
+    return [Pagina(1)]
 
 
 def insercao(arvore: list[Pagina], novoRegistro: Chave):
