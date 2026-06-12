@@ -7,11 +7,11 @@ import os
 import sys
 import struct
 
-ORDEM: int = 0 ##Ordem é a quantidade de filhos de uma página
+ORDEM: int = 6 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
 fmtChave = "HH"
-fmtPagina = f"HB{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
+fmtPagina = f"B{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 
 class Chave:
     def __init__(self) -> None:
@@ -20,10 +20,9 @@ class Chave:
 
 class Pagina:
     def __init__(self, rrn: int) -> None:
-        self.rrn: int = rrn
         self.numChaves: int = 0
         self.chaves: list[Chave] = [Chave()] * (ORDEM - 1)
-        self.filhos: list = [-1] * ORDEM
+        self.filhos: list = [NULO] * ORDEM
 
 
 def divide(chaveNova: Chave, filhoNovo: int, paginaCheia: Pagina, maiorRRN: int, posicaoLista: int) -> Chave, int, Pagina, Pagina;
@@ -36,7 +35,7 @@ def divide(chaveNova: Chave, filhoNovo: int, paginaCheia: Pagina, maiorRRN: int,
     for i in range(metade):
         if i < metade:
             
-            paginaNova
+            paginaNova.
             paginaNova.filhos = paginaCheia.filhos[metade + i]
             paginaCheia.filhos[metade + i] = NULO
             
@@ -53,7 +52,7 @@ def divide(chaveNova: Chave, filhoNovo: int, paginaCheia: Pagina, maiorRRN: int,
     return chavePromovida, rrnNovaPagina, paginaCheia, paginaNova
 
 
-def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina], maiorRRN: int):
+def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
     if rrnAtual == None:
         # chavePro = chave
         # filhoDpro = None
@@ -70,7 +69,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina], maiorRRN:
     if promo == False:
         return None, None, False
     else:
-        if paginas[rrnAtual].numChaves <= ORDEM:
+        if paginas[rrnAtual].numChaves < ORDEM - 1:
             paginas[rrnAtual].chaves.append(chavePro)
             paginas[rrnAtual].filhos.append(filhoDpro)
             return None, None, False
@@ -122,7 +121,7 @@ def construir_indices():
 
     with open("btree.dat", "wb") as arvoreB:
         for i in paginas:
-            linha = struct.pack("HB", i.rrn, i.numChaves)
+            linha = struct.pack("B", i.numChaves)
 
             for j in i.chaves:
                 linha += struct.pack(fmtChave, j.id, j.offset)
