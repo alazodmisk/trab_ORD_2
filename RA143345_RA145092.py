@@ -7,7 +7,6 @@ import os
 import sys
 import struct
 
-RRN_MAIOR: int = 0
 ORDEM: int = 0 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
@@ -27,11 +26,38 @@ class Pagina:
         self.filhos: list = [-1] * ORDEM
 
 
-def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
+def divide(chaveNova: Chave, filhoNovo: int, paginaCheia: Pagina, maiorRRN: int, posicaoLista: int) -> Chave, int, Pagina, Pagina;
+    listaTemp: list[Chave] = paginaCheia.chaves
+    listaTemp = listaTemp[:posicaoLista] + [chaveNova] + listaTemp[posicaoLista:]
+
+    metade = ORDEM / 2
+    paginaNova: Pagina = Pagina()
+
+    for i in range(metade):
+        if i < metade:
+            
+            paginaNova
+            paginaNova.filhos = paginaCheia.filhos[metade + i]
+            paginaCheia.filhos[metade + i] = NULO
+            
+        elif i > metade:
+            pagino
+
+    
+
+    maiorRRN += 1
+
+    chavePromovida = listaTemp[metade]
+    rrnNovaPagina = maiorRRN
+
+    return chavePromovida, rrnNovaPagina, paginaCheia, paginaNova
+
+
+def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina], maiorRRN: int):
     if rrnAtual == None:
-        chavePro = chave
-        filhoDpro = None
-        return chavePro, filhoDpro, True
+        # chavePro = chave
+        # filhoDpro = None
+        return chave, None, True
     else:
         achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
 
@@ -39,7 +65,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
         print("Chave duplicada")
         return None, None, False
     
-    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
+    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas, maiorRRN)
 
     if promo == False:
         return None, None, False
@@ -49,6 +75,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
             paginas[rrnAtual].filhos.append(filhoDpro)
             return None, None, False
         else:
+            chavePro, filhoDpro, paginas[rrnAtual], novaPag = divide(chavePro, filhoDpro, paginas[rrnAtual], maiorRRN, pos)
             return chavePro, filhoDpro, True
 
 def buscaNaPagina(chave: Chave, pag: Pagina):
