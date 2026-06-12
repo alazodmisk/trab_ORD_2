@@ -19,35 +19,34 @@ class Chave:
         self.offset: int = NULO
 
 class Pagina:
-    def __init__(self, rrn: int) -> None:
+    def __init__(self) -> None:
         self.numChaves: int = 0
         self.chaves: list[Chave] = [Chave()] * (ORDEM - 1)
         self.filhos: list = [NULO] * ORDEM
 
 
-def divide(chaveNova: Chave, filhoNovo: int, paginaCheia: Pagina, maiorRRN: int, posicaoLista: int) -> Chave, int, Pagina, Pagina;
-    listaTemp: list[Chave] = paginaCheia.chaves
-    listaTemp = listaTemp[:posicaoLista] + [chaveNova] + listaTemp[posicaoLista:]
+def divide(chaveNova: Chave, filhoDpro: int, paginaCheia: Pagina, paginas: list[Pagina], posicaoLista: int):
+    listaChavesTemp: list[Chave] = paginaCheia.chaves
+    listaChavesTemp = listaChavesTemp[:posicaoLista] + [chaveNova] + listaChavesTemp[posicaoLista:]
+    listaFilhosTemp: list[int] = paginaCheia.filhos
+    listaFilhosTemp = listaFilhosTemp[:posicaoLista] + [filhoDpro] + listaFilhosTemp[posicaoLista:]
 
-    metade = ORDEM / 2
+    metade = ORDEM // 2
     paginaNova: Pagina = Pagina()
 
     for i in range(metade):
-        if i < metade:
-            
-            paginaNova.
-            paginaNova.filhos = paginaCheia.filhos[metade + i]
-            paginaCheia.filhos[metade + i] = NULO
-            
-        elif i > metade:
-            pagino
-
+        paginaNova.chaves[i] = listaChavesTemp[metade + i]
+        paginaCheia.chaves[metade + i] = NULO
+        paginaNova.filhos[i] = listaFilhosTemp[metade + i]
+        paginaCheia.filhos[metade + i] = NULO
+        
+    paginas.append(paginaNova)
     
 
     maiorRRN += 1
 
-    chavePromovida = listaTemp[metade]
-    rrnNovaPagina = maiorRRN
+    chavePromovida = listaChavesTemp[metade]
+    rrnNovaPagina = len(paginas)
 
     return chavePromovida, rrnNovaPagina, paginaCheia, paginaNova
 
