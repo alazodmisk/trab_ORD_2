@@ -13,7 +13,11 @@ NULO: int = -1
 fmtCabecalho = "h" ##Indica a raíz da Árvore
 TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
 fmtChave = "HH"
-fmtPagina = f"B{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
+TAMID: int = sys.getsizeof("H")
+TAMBYTE: int = sys.getsizeof("H")
+
+fmtPagina = f"H{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
+TAMFILHO = sys.getsizeof("h")
 TAMPAGINA: int = sys.getsizeof(fmtPagina)
 
 class Chave:
@@ -116,7 +120,6 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
             return buscaNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
 
-
 def construir_indices():
     raiz = -1
     paginas: list[Pagina] = [Pagina()]
@@ -146,7 +149,6 @@ def construir_indices():
             
             for k in i.filhos:
                 linha += struct.pack("H", k)
-
 
             arvoreB.write(linha)
     return None
@@ -189,8 +191,6 @@ def executar_operacoes(nome_arquivo):
 
             return None
         
-
-
         print(f"As operações do arquivo {nome_arquivo} foram executadas com sucesso!")
 
     except FileNotFoundError:
@@ -210,18 +210,30 @@ def imprime_arvore():
                 if i == raiz:
                     print("---------------- RAIZ ------------------")
 
-                arvoreB.read(TAMPAGINA)
-                arvoreB.seek(i * fmtPagina + TAMCABECALHO, 0)
+                pag = Pagina()
+                registro = struct.unpack(fmtPagina, arvoreB.read(TAMPAGINA))
+                pag.numChaves = registro[0]
+                for j in range(ORDEM-1):
+                    pag.chaves[j] = Chave(registro[(j*2)+1], registro[(j*2)+2])
+                for j in range(ORDEM):
+                    pag.filhos[j] = registro[(ORDEM * 2 - 1) + j]
+                
+                print("Página " + i + ":")
+                print("Chaves : ")
+                for i in pag.chaves:
+                    print(i.id + " |", end="")
+                print("Offsets : ")
+                for i in pag.chaves:
+                    print(i.offset + " |", end="")
+                print("Offsets : ")
+                for i in pag.filhos:
+                    print(i + " |", end="")
 
                 if i == raiz:
                     print("----------------------------------------")
 
-
     except FileNotFoundError:
         print("Erro: arquivo de arvore não encontrado")
-
-
-
 
 
 
