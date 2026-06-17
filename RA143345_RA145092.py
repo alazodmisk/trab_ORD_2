@@ -10,9 +10,11 @@ import struct
 ORDEM: int = 6 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
-fmtCabecalho = "H" ##Indica a raíz da Árvore
+fmtCabecalho = "h" ##Indica a raíz da Árvore
+TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
 fmtChave = "HH"
 fmtPagina = f"B{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
+TAMPAGINA: int = sys.getsizeof(fmtPagina)
 
 class Chave:
     def __init__(self) -> None:
@@ -37,20 +39,27 @@ def divide(chaveNova: Chave, filhoDpro: int, paginas: list[Pagina], pagRRN: int,
 
 
     for i in range(ORDEM-2):
-        if i <= metade:
-            if (i+1 != metade):
-                pagNova.chaves[i] = listaChavesTemp[metade + i + 1]
-            if (i != metade):
-                pagOrig.chaves[i] = listaChavesTemp[i]
-                pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
-            if (i == metade):
-                pagOrig.chaves[i] = NULO
+        if i < metade - 1:
+            pagNova.chaves[i] = listaChavesTemp[metade + i + 1]
+            pagOrig.chaves[i] = listaChavesTemp[i]
+            pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
+            pagOrig.filhos[i] = listaFilhosTemp[i]
+
+        elif i == metade - 1:
+            pagOrig.chaves[i] = listaChavesTemp[i]
+            pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
+            pagOrig.filhos[i] = listaFilhosTemp[i]
+
+        elif i == metade:
+            pagOrig.chaves[i].id = NULO
+            pagOrig.chaves[i].offset = NULO
             pagOrig.filhos[i] = listaFilhosTemp[i]
 
         else:
             pagOrig.chaves[i].id = NULO
             pagOrig.chaves[i].offset = NULO
             pagOrig.filhos[i] = NULO
+
     pagOrig.filhos[ORDEM-1] = NULO
 
     paginas[pagRRN] = pagOrig
@@ -82,7 +91,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
             paginas[rrnAtual].filhos = paginas[rrnAtual].filhos[:pos] + [filhoDpro] + paginas[rrnAtual].filhos[pos:]
             return None, None, False
         else:
-            chavePro, filhoDpro = divide(chavePro, filhoDpro, paginas[rrnAtual], pos)
+            chavePro, filhoDpro = divide(chavePro, filhoDpro, paginas, rrnAtual, pos)
             return chavePro, filhoDpro, True
 
 
@@ -143,14 +152,11 @@ def construir_indices():
     return None
 
 
-def carrega_paginas() -> list[Pagina]:
-    return [Pagina(1)]
 
-
-def insercao(arvore: list[Pagina], novoRegistro: Chave):
+def insercao(arvore: io.BufferedRandom, novoRegistro: Chave, games: io.BufferedReader):
     return None
 
-def busca():
+def busca(arvore: io.BufferedRandom, buscaID: int, games: io.BufferedReader):
     return None
 
 
@@ -159,10 +165,8 @@ def executar_operacoes(nome_arquivo):
     print(f"\n-------> Executando operações do arquivo: {nome_arquivo} <-------\n")
 
     try:
-        with open(nome_arquivo, 'r', encoding='utf-8') as f, open("games.dat", 'r+b') as games, open("btree.dat", 'r+b') as arvoreB:
+        with open(nome_arquivo, 'r', encoding='utf-8') as f, open("games.dat", 'rb') as games, open("btree.dat", 'r+b') as arvoreB:
             
-            paginas = carrega_paginas(arvoreB)
-
             for linha in f:
                 linha = linha.strip()
 
@@ -175,17 +179,13 @@ def executar_operacoes(nome_arquivo):
                 argumento = partes[1]
 
                 if operacao == 'b':
-                    busca(paginas, int(argumento), games)
+                    busca(arvoreB, int(argumento), games)
                 elif operacao == 'i':
-                    insercao(paginas, str(argumento), games)
+                    insercao(arvoreB, argumento, games)
 
                 else:
                     print("Comando não identificado. Por favor, verifique o arquivo de operações.")   
                 print("")
-
-            games.close()
-
-
 
             return None
         
@@ -194,7 +194,7 @@ def executar_operacoes(nome_arquivo):
         print(f"As operações do arquivo {nome_arquivo} foram executadas com sucesso!")
 
     except FileNotFoundError:
-        print("Erro: arquivo de operações não encontrado.")
+        print("Erro: arquivo de operações/jogos/arvore não encontrado.")
 
 
 
@@ -202,7 +202,23 @@ def executar_operacoes(nome_arquivo):
 
 
 def imprime_arvore():
-    return None
+    try:
+        with open("btree.dat", "rb") as arvoreB:
+            raiz: int  = arvoreB.read(TAMCABECALHO)
+            numPaginas = (arvoreB.seek(0, 2).tell() - TAMCABECALHO)/fmtPagina #vai pro final e conta onde é o final
+            for i in range(numPaginas):
+                if i == raiz:
+                    print("---------------- RAIZ ------------------")
+
+                arvoreB.read(TAMPAGINA)
+                arvoreB.seek(i * fmtPagina + TAMCABECALHO, 0)
+
+                if i == raiz:
+                    print("----------------------------------------")
+
+
+    except FileNotFoundError:
+        print("Erro: arquivo de arvore não encontrado")
 
 
 
