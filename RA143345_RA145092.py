@@ -10,6 +10,7 @@ import struct
 ORDEM: int = 6 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
+fmtCabecalho = "H" ##Indica a raíz da Árvore
 fmtChave = "HH"
 fmtPagina = f"B{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 
@@ -25,56 +26,65 @@ class Pagina:
         self.filhos: list = [NULO] * ORDEM
 
 
-def divide(chaveNova: Chave, filhoDpro: int, paginaCheia: Pagina, paginas: list[Pagina], posicaoLista: int):
-    listaChavesTemp: list[Chave] = paginaCheia.chaves
-    listaChavesTemp = listaChavesTemp[:posicaoLista] + [chaveNova] + listaChavesTemp[posicaoLista:]
-    listaFilhosTemp: list[int] = paginaCheia.filhos
-    listaFilhosTemp = listaFilhosTemp[:posicaoLista] + [filhoDpro] + listaFilhosTemp[posicaoLista:]
+def divide(chaveNova: Chave, filhoDpro: int, paginas: list[Pagina], pagRRN: int, posicaoLista: int):
+    pagOrig = paginas[pagRRN]
+    
+    listaChavesTemp = pagOrig.chaves[:posicaoLista]   + [chaveNova] + pagOrig.chaves[posicaoLista:]
+    listaFilhosTemp = pagOrig.filhos[:posicaoLista+1] + [filhoDpro] + pagOrig.filhos[posicaoLista+1:]
 
     metade = ORDEM // 2
-    paginaNova: Pagina = Pagina()
+    pagNova: Pagina = Pagina()
 
-    for i in range(metade):
-        paginaNova.chaves[i] = listaChavesTemp[metade + i]
-        paginaCheia.chaves[metade + i] = NULO
-        paginaNova.filhos[i] = listaFilhosTemp[metade + i]
-        paginaCheia.filhos[metade + i] = NULO
-        
-    paginas.append(paginaNova)
-    
 
-    maiorRRN += 1
+    for i in range(ORDEM-2):
+        if i <= metade:
+            if (i+1 != metade):
+                pagNova.chaves[i] = listaChavesTemp[metade + i + 1]
+            if (i != metade):
+                pagOrig.chaves[i] = listaChavesTemp[i]
+                pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
+            if (i == metade):
+                pagOrig.chaves[i] = NULO
+            pagOrig.filhos[i] = listaFilhosTemp[i]
+
+        else:
+            pagOrig.chaves[i].id = NULO
+            pagOrig.chaves[i].offset = NULO
+            pagOrig.filhos[i] = NULO
+    pagOrig.filhos[ORDEM-1] = NULO
+
+    paginas[pagRRN] = pagOrig
+    paginas.append(pagNova)
 
     chavePromovida = listaChavesTemp[metade]
     rrnNovaPagina = len(paginas)
-
-    return chavePromovida, rrnNovaPagina, paginaCheia, paginaNova
+    return chavePromovida, rrnNovaPagina
 
 
 def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
-    if rrnAtual == None:
-        # chavePro = chave
-        # filhoDpro = None
+
+    if rrnAtual == None:                            #Identifica chegada em Folha
         return chave, None, True
-    else:
+    else:                                           #Caso nao ache a Chave, fala onde deve entrar
         achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
 
     if achou:
-        print("Chave duplicada")
+        print("- Chave duplicada - Insercao interrompida.")
         return None, None, False
     
-    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas, maiorRRN)
+    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
     if promo == False:
         return None, None, False
     else:
-        if paginas[rrnAtual].numChaves < ORDEM - 1:
-            paginas[rrnAtual].chaves.append(chavePro)
-            paginas[rrnAtual].filhos.append(filhoDpro)
+        if paginas[rrnAtual].numChaves < ORDEM - 1: #POSICAO de insercao ja achada, so colocar la
+            paginas[rrnAtual].chaves = paginas[rrnAtual].chaves[:pos] + [chavePro]  + paginas[rrnAtual].chaves[pos:]
+            paginas[rrnAtual].filhos = paginas[rrnAtual].filhos[:pos] + [filhoDpro] + paginas[rrnAtual].filhos[pos:]
             return None, None, False
         else:
-            chavePro, filhoDpro, paginas[rrnAtual], novaPag = divide(chavePro, filhoDpro, paginas[rrnAtual], maiorRRN, pos)
+            chavePro, filhoDpro = divide(chavePro, filhoDpro, paginas[rrnAtual], pos)
             return chavePro, filhoDpro, True
+
 
 def buscaNaPagina(chave: Chave, pag: Pagina):
     pos = 0
@@ -92,15 +102,15 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
     else:
         achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
         if achou:
-            return True, rrnAtual, pos
+            return achou, rrnAtual, pos
         else:
             return buscaNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
 
 
 def construir_indices():
-    raiz: Pagina = Pagina(0)
-    paginas: list[Pagina] = [raiz]
+    raiz = -1
+    paginas: list[Pagina] = [Pagina()]
     offset = 0
 
     with open('games.dat', 'rb') as games:
@@ -113,7 +123,7 @@ def construir_indices():
             registro:list[str] = buffer.split("|", 1)
             indice = int(registro[0])
 
-            insercao(paginas, Chave(indice, offset))
+            insereNaArvore(paginas, Chave(indice, offset))
             offset += tam + 2
 
             buffer = games.read(2)
