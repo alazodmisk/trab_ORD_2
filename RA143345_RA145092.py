@@ -12,31 +12,32 @@ NULO: int = -1
 
 fmtCabecalho = "h" ##Indica a raíz da Árvore
 TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
-fmtChave = "HH"
+
 TAMID: int = sys.getsizeof("H")
 TAMBYTE: int = sys.getsizeof("H")
-
-fmtPagina = f"H{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 TAMFILHO = sys.getsizeof("h")
+fmtPagina = f"H{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
 TAMPAGINA: int = sys.getsizeof(fmtPagina)
 
 class Chave:
-    def __init__(self) -> None:
+    def __init__(self):
         self.id: int = NULO
         self.offset: int = NULO
 
 class Pagina:
-    def __init__(self) -> None:
+    def __init__(self):
         self.numChaves: int = 0
         self.chaves: list[Chave] = [Chave()] * (ORDEM - 1)
         self.filhos: list = [NULO] * ORDEM
 
 
-def divide(chaveNova: Chave, filhoDpro: int, paginas: list[Pagina], pagRRN: int, posicaoLista: int):
-    pagOrig = paginas[pagRRN]
+def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
+    arvore.seek(0,0)
+    raiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))
+    arvore.seek()
     
-    listaChavesTemp = pagOrig.chaves[:posicaoLista]   + [chaveNova] + pagOrig.chaves[posicaoLista:]
-    listaFilhosTemp = pagOrig.filhos[:posicaoLista+1] + [filhoDpro] + pagOrig.filhos[posicaoLista+1:]
+    listaChavesTemp = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
+    listaFilhosTemp = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
 
     metade = ORDEM // 2
     pagNova: Pagina = Pagina()
@@ -74,30 +75,34 @@ def divide(chaveNova: Chave, filhoDpro: int, paginas: list[Pagina], pagRRN: int,
     return chavePromovida, rrnNovaPagina
 
 
-def insereNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
 
-    if rrnAtual == None:                            #Identifica chegada em Folha
+def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
+    if rrnAtual == None:
         return chave, None, True
-    else:                                           #Caso nao ache a Chave, fala onde deve entrar
-        achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
-
+    
+    pag = carregaPagina(arvore, rrnAtual)
+    achou, pos = buscaNaPagina(chave, pag)
+    
     if achou:
         print("- Chave duplicada - Insercao interrompida.")
         return None, None, False
     
-    chavePro, filhoDpro, promo = insereNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
+    chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos], arvore)
 
     if promo == False:
         return None, None, False
-    else:
-        if paginas[rrnAtual].numChaves < ORDEM - 1: #POSICAO de insercao ja achada, so colocar la
-            paginas[rrnAtual].chaves = paginas[rrnAtual].chaves[:pos] + [chavePro]  + paginas[rrnAtual].chaves[pos:]
-            paginas[rrnAtual].filhos = paginas[rrnAtual].filhos[:pos] + [filhoDpro] + paginas[rrnAtual].filhos[pos:]
-            return None, None, False
-        else:
-            chavePro, filhoDpro = divide(chavePro, filhoDpro, paginas, rrnAtual, pos)
-            return chavePro, filhoDpro, True
-
+    
+    if pag.numChaves < (ORDEM-1):
+        arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO +2, 0)
+        for i in range(pos):
+            arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
+        arvore.write("HH", chave.id, chave.offset)
+        for i in range(pos, pag.numChaves):
+            arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
+        return None, None, False
+    
+    divide(chavePro, filhoDpro, rrnAtual, arvore, pos)
+    return chavePro, filhoDpro, True
 
 def buscaNaPagina(chave: Chave, pag: Pagina):
     pos = 0
@@ -108,27 +113,20 @@ def buscaNaPagina(chave: Chave, pag: Pagina):
     else:
         return False, pos
 
-
-def buscaNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
+def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return False, None, None
     else:
-        achou, pos = buscaNaPagina(chave, paginas[rrnAtual])
+        pagina = carregaPagina(arvore, rrnAtual)
+        achou, pos = buscaNaPagina(chave, pagina)
         if achou:
             return achou, rrnAtual, pos
         else:
-            return buscaNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
+            return buscaNaArvore(chave, pagina.filhos[pos], arvore)
 
-def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedReader):
-    if rrnAtual == None:
-        return False, None, None
-    else:
-        pagina = carregaPagina(arvore, )
-        achou, pos = buscaNaPagina(chave, pagina)
-
-def carregaPagina(arvore: io.BufferedReader, rrn: int) -> Pagina:
-    ponteiro = arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
-    linha = struct.unpack(fmtPagina, ponteiro.read(TAMPAGINA))
+def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
+    arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
+    linha = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
     pag = Pagina()
     pag.numChaves = linha[0]
     for i in range(ORDEM-1):
@@ -136,9 +134,11 @@ def carregaPagina(arvore: io.BufferedReader, rrn: int) -> Pagina:
     pag.filhos = linha[ORDEM*2 - 1:]        #(ORDEM-1)*2 +1
     return pag
 
+
+
 def construir_indices():
     offset = 0
-    arvoreB = open("btree.dat", "wb")
+    arvoreB = open("btree.dat", "r+b")
     arvoreB.write(struct.pack(fmtCabecalho, NULO))
 
     with open('games.dat', 'rb') as games:
