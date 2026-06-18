@@ -119,11 +119,27 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, paginas: list[Pagina]):
         else:
             return buscaNaArvore(chave, paginas[rrnAtual].filhos[pos], paginas)
 
+def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedReader):
+    if rrnAtual == None:
+        return False, None, None
+    else:
+        pagina = carregaPagina(arvore, )
+        achou, pos = buscaNaPagina(chave, pagina)
+
+def carregaPagina(arvore: io.BufferedReader, rrn: int) -> Pagina:
+    ponteiro = arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
+    linha = struct.unpack(fmtPagina, ponteiro.read(TAMPAGINA))
+    pag = Pagina()
+    pag.numChaves = linha[0]
+    for i in range(ORDEM-1):
+        pag.chaves[i] = Chave(linha[(i*2)+1], linha[(i*2)+2])
+    pag.filhos = linha[ORDEM*2 - 1:]        #(ORDEM-1)*2 +1
+    return pag
 
 def construir_indices():
-    raiz = -1
-    paginas: list[Pagina] = [Pagina()]
     offset = 0
+    arvoreB = open("btree.dat", "wb")
+    arvoreB.write(struct.pack(fmtCabecalho, NULO))
 
     with open('games.dat', 'rb') as games:
         buffer = games.read(2)
@@ -135,22 +151,12 @@ def construir_indices():
             registro:list[str] = buffer.split("|", 1)
             indice = int(registro[0])
 
-            insereNaArvore(paginas, Chave(indice, offset))
+            insereNaArvore(arvoreB, Chave(indice, offset))
             offset += tam + 2
 
             buffer = games.read(2)
 
-    with open("btree.dat", "wb") as arvoreB:
-        for i in paginas:
-            linha = struct.pack("B", i.numChaves)
-
-            for j in i.chaves:
-                linha += struct.pack(fmtChave, j.id, j.offset)
-            
-            for k in i.filhos:
-                linha += struct.pack("H", k)
-
-            arvoreB.write(linha)
+    arvoreB.close()
     return None
 
 
