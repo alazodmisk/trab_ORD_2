@@ -31,16 +31,6 @@ class Pagina:
         self.filhos: list = [NULO] * ORDEM
 
 
-<<<<<<< HEAD
-=======
-def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
-    arvore.seek(0,0)
-    raiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))
-    arvore.seek()
-    
-    listaChavesTemp = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
-    listaFilhosTemp = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
 def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
     arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
@@ -71,7 +61,6 @@ def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRan
 
     for i in range(ORDEM-2):
         if i < metade - 1:
-<<<<<<< HEAD
             pagNova.chaves[i] = listChaveTemp[metade + i + 1]
             pagOrig.chaves[i] = listChaveTemp[i]
             pagNova.filhos[i] = listFilhoTemp[metade + i + 1]
@@ -81,26 +70,11 @@ def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRan
             pagOrig.chaves[i] = listChaveTemp[i]
             pagNova.filhos[i] = listFilhoTemp[metade + i + 1]
             pagOrig.filhos[i] = listFilhoTemp[i]
-=======
-            pagNova.chaves[i] = listaChavesTemp[metade + i + 1]
-            pagOrig.chaves[i] = listaChavesTemp[i]
-            pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
-            pagOrig.filhos[i] = listaFilhosTemp[i]
-
-        elif i == metade - 1:
-            pagOrig.chaves[i] = listaChavesTemp[i]
-            pagNova.filhos[i] = listaFilhosTemp[metade + i + 1]
-            pagOrig.filhos[i] = listaFilhosTemp[i]
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
         elif i == metade:
             pagOrig.chaves[i].id = NULO
             pagOrig.chaves[i].offset = NULO
-<<<<<<< HEAD
             pagOrig.filhos[i] = listFilhoTemp[i]
-=======
-            pagOrig.filhos[i] = listaFilhosTemp[i]
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
         else:
             pagOrig.chaves[i].id = NULO
@@ -125,10 +99,6 @@ def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRan
     return chavePromovida, rrnNovaPagina
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return chave, None, True
@@ -146,26 +116,14 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         return None, None, False
     
     if pag.numChaves < (ORDEM-1):
-<<<<<<< HEAD
         pag.chaves = pag.chaves[:pos] + [chave]   + pag.chaves[pos:]
         pag.filhos = pag.filhos[:pos] +[filhoDpro]+ pag.filhos[pos:]
         escreveNaArvore(pag, rrnAtual, arvore)
-=======
-        arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO +2, 0)
-        for i in range(pos):
-            arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
-        arvore.write("HH", chave.id, chave.offset)
-        for i in range(pos, pag.numChaves):
-            arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
         return None, None, False
     
     divide(chavePro, filhoDpro, rrnAtual, arvore, pos)
     return chavePro, filhoDpro, True
-<<<<<<< HEAD
 
-=======
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
 def buscaNaPagina(chave: Chave, pag: Pagina):
     pos = 0
@@ -176,10 +134,7 @@ def buscaNaPagina(chave: Chave, pag: Pagina):
     else:
         return False, pos
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return False, None, None
@@ -190,20 +145,6 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
             return achou, rrnAtual, pos
         else:
             return buscaNaArvore(chave, pagina.filhos[pos], arvore)
-<<<<<<< HEAD
-=======
-
-def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
-    arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
-    linha = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
-    pag = Pagina()
-    pag.numChaves = linha[0]
-    for i in range(ORDEM-1):
-        pag.chaves[i] = Chave(linha[(i*2)+1], linha[(i*2)+2])
-    pag.filhos = linha[ORDEM*2 - 1:]        #(ORDEM-1)*2 +1
-    return pag
-
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
 
 def construir_indices():
@@ -227,17 +168,6 @@ def construir_indices():
             buffer = games.read(2)
 
     arvoreB.close()
-<<<<<<< HEAD
-=======
-    return None
-
-
-
-def insercao(arvore: io.BufferedRandom, novoRegistro: Chave, games: io.BufferedReader):
-    return None
-
-def busca(arvore: io.BufferedRandom, buscaID: int, games: io.BufferedReader):
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
     return None
 
 
@@ -274,13 +204,6 @@ def executar_operacoes(nome_arquivo):
 
     except FileNotFoundError:
         print("Erro: arquivo de operações/jogos/arvore não encontrado.")
-<<<<<<< HEAD
-=======
-
-
-
-
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
 
 def imprime_arvore():
@@ -313,15 +236,10 @@ def imprime_arvore():
 
                 if i == raiz:
                     print("----------------------------------------")
-<<<<<<< HEAD
 
     except FileNotFoundError:
         print("Erro: arquivo de arvore não encontrado")
-=======
->>>>>>> 41da04d278a6b513342bde93ff2829e24c1c76c0
 
-    except FileNotFoundError:
-        print("Erro: arquivo de arvore não encontrado")
 
 
 
