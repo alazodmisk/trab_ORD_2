@@ -3,7 +3,6 @@
 # RA145092 - Guilherme Henrique Viana Pichitelli Vitor
 
 import io
-import os
 import sys
 import struct
 
@@ -14,9 +13,9 @@ fmtCabecalho = "h" ##Indica a raíz da Árvore
 TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
 
 TAMID: int = sys.getsizeof("H")
-TAMBYTE: int = sys.getsizeof("H")
-TAMFILHO = sys.getsizeof("h")
-fmtPagina = f"H{ORDEM-1}H{ORDEM-1}H{ORDEM}h"
+TAMOFFSET: int = sys.getsizeof("H")
+TAMFILHO: int = sys.getsizeof("h")
+fmtPagina = f"H{2*(ORDEM-1)}H{ORDEM}h" #numChaves chaves filhos
 TAMPAGINA: int = sys.getsizeof(fmtPagina)
 
 class Chave:
@@ -34,65 +33,52 @@ class Pagina:
 
 def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
     arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
-    linha = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
+    buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
     pag = Pagina()
-    pag.numChaves = linha[0]
+    pag.numChaves = buffer[0]
     for i in range(ORDEM-1):
-        pag.chaves[i] = Chave(linha[(i*2)+1], linha[(i*2)+2])
-    pag.filhos = linha[ORDEM*2 - 1:]        #(ORDEM-1)*2 +1
+        pag.chaves[i] = Chave(buffer[(i*2)+1], buffer[(i*2)+2])
+    pag.filhos = list(buffer[2*(ORDEM-1) + 1:])
     return pag
 
 
 def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
-    arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO +2, 0)
+    arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO, 0)
+    arvore.write(struct.pack("H"), pag.numChaves)
     for i in range(ORDEM-1):
         arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
     for i in range(ORDEM):
         arvore.write(struct.pack("H", pag.filhos[i]))
 
 
-def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
-    pagOrig = carregaPagina(arvore, pagRRN)
-    pagNova = Pagina()
-
+def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
+    # pagOrig = carregaPagina(arvore, pagRRN)
+    
     listChaveTemp = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
     listFilhoTemp = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
     metade = ORDEM // 2
+    pagOrig = Pagina()
+    pagNova = Pagina()
 
-    for i in range(ORDEM-2):
-        if i < metade - 1:
-            pagNova.chaves[i] = listChaveTemp[metade + i + 1]
-            pagOrig.chaves[i] = listChaveTemp[i]
-            pagNova.filhos[i] = listFilhoTemp[metade + i + 1]
-            pagOrig.filhos[i] = listFilhoTemp[i]
+    for i in range(metade):
+        pagOrig.chaves[i] = listChaveTemp[i]
+        pagOrig.numChaves += 1
+        pagOrig.filhos[i] = listFilhoTemp[i]
+    pagOrig.filhos[metade] = listFilhoTemp[metade]
 
-        elif i == metade - 1:
-            pagOrig.chaves[i] = listChaveTemp[i]
-            pagNova.filhos[i] = listFilhoTemp[metade + i + 1]
-            pagOrig.filhos[i] = listFilhoTemp[i]
+    for i in range(metade+1, ORDEM):
+        pagNova.chaves[i-metade-1] = listChaveTemp[i]
+        pagNova.numChaves += 1
+        pagNova.filhos[i-metade-1] = listFilhoTemp[i]
+    pagNova.filhos[ORDEM-metade-1] = listFilhoTemp[ORDEM]
 
-        elif i == metade:
-            pagOrig.chaves[i].id = NULO
-            pagOrig.chaves[i].offset = NULO
-            pagOrig.filhos[i] = listFilhoTemp[i]
-
-        else:
-            pagOrig.chaves[i].id = NULO
-            pagOrig.chaves[i].offset = NULO
-            pagOrig.filhos[i] = NULO
-
-    pagOrig.filhos[ORDEM-1] = NULO
-
-    escreveNaArvore(pagOrig, pagRRN)
-    fim = arvore.seek(0,2).tell()
+    escreveNaArvore(pagOrig, pagRRN, arvore)
+    arvore.seek(0,2)
+    fim = arvore.tell()
     rrnfim = ((fim-TAMCABECALHO)/TAMPAGINA) -1
     escreveNaArvore(pagNova, rrnfim, arvore)
 
     arvore.seek(0,0)
-    raiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))
-    if raiz == pagRRN:
-        arvore.seek(0,0)
-        arvore.write(struct.pack(fmtCabecalho, rrnfim))
 
     chavePromovida = listChaveTemp[metade]
     rrnNovaPagina = rrnfim
@@ -100,8 +86,8 @@ def divide(chaveNova: Chave, filhoDpro: int, pagRRN: int, arvore: io.BufferedRan
 
 
 def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
-    if rrnAtual == None:
-        return chave, None, True
+    if rrnAtual == NULO:
+        return chave, NULO, True
     
     pag = carregaPagina(arvore, rrnAtual)
     achou, pos = buscaNaPagina(chave, pag)
@@ -116,12 +102,13 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         return None, None, False
     
     if pag.numChaves < (ORDEM-1):
-        pag.chaves = pag.chaves[:pos] + [chave]   + pag.chaves[pos:]
-        pag.filhos = pag.filhos[:pos] +[filhoDpro]+ pag.filhos[pos:]
+        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:]
+        pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:]
+        pag.numChaves += 1
         escreveNaArvore(pag, rrnAtual, arvore)
         return None, None, False
     
-    divide(chavePro, filhoDpro, rrnAtual, arvore, pos)
+    divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
     return chavePro, filhoDpro, True
 
 
@@ -150,7 +137,8 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
 def construir_indices():
     offset = 0
     arvoreB = open("btree.dat", "r+b")
-    arvoreB.write(struct.pack(fmtCabecalho, NULO))
+    rrnRaiz = NULO
+    arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))
 
     with open('games.dat', 'rb') as games:
         buffer = games.read(2)
@@ -162,7 +150,21 @@ def construir_indices():
             registro:list[str] = buffer.split("|", 1)
             indice = int(registro[0])
 
-            insereNaArvore(arvoreB, Chave(indice, offset))
+            chavePro, filhoDpro, promo = insereNaArvore(Chave(indice,offset), rrnRaiz, arvoreB)
+
+            if promo:                           #raiz promoveu
+                novaRaiz = Pagina()                                     #CRIA nova raiz
+                novaRaiz.numChaves = 1
+                novaRaiz.chaves[0] = chavePro
+                novaRaiz.filhos[0] = rrnRaiz  
+                novaRaiz.filhos[1] = filhoDpro
+
+                arvoreB.seek(0,2)
+                rrnRaiz = ((arvoreB.tell()-TAMCABECALHO)/TAMPAGINA)-1
+                arvoreB.seek(0,0)           
+                arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))       #ATUALIZA onde ta a raiz
+                
+                escreveNaArvore(novaRaiz, rrnRaiz, arvoreB)             #ESCREVE nova raiz
             offset += tam + 2
 
             buffer = games.read(2)
