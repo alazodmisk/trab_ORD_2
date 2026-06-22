@@ -40,7 +40,7 @@ def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
 
 #Func auxiliar de TUDO
 def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
-    arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO, 0)
+    arvore.seek((rrnAtual*TAMPAGINA +TAMCABECALHO), 0)
     arvore.write(struct.pack("H", pag.numChaves))   #H  = fmtNumChaves da Pagina
 
     for i in range(ORDEM-1):                        #HH = fmtID + fmtOffset de cada Chave
@@ -85,6 +85,9 @@ def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvor
 
 #Func auxiliar de insereNaArvore(), insercao()
 def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
+    if rrnRaiz == NULO:
+        rrnRaiz = 0
+
     novaRaiz = Pagina()                                     #CRIA nova raiz
     novaRaiz.numChaves = 1
     novaRaiz.chaves[0] = chavePro
@@ -187,10 +190,12 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
 #Func FLAG -b
 def construir_indices():
     offset = 0
-    arvoreB = open("btree.dat", "r+b")
+    arvoreB = open("btree.dat", "wb")
     rrnRaiz = NULO
     arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))
+    arvoreB.close()
 
+    arvoreB = open("btree.dat", "r+b")
     with open('games.dat', 'rb') as games:
         buffer = games.read(2)
 
