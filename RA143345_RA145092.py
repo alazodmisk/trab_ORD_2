@@ -10,10 +10,10 @@ ORDEM: int = 6 ##Ordem é a quantidade de filhos de uma página
 NULO: int = -1
 
 fmtCabecalho = "h" ##Indica a raíz da Árvore
-TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
+TAMCABECALHO: int = struct.calcsize(fmtCabecalho)
 
-fmtPagina = f"B{2*(ORDEM-1)}H{ORDEM}h" #numChaves chaves filhos
-TAMPAGINA: int = sys.getsizeof(fmtPagina)
+fmtPagina = f"B{2*(ORDEM-1)}h{ORDEM}b" #numChaves chaves filhos
+TAMPAGINA: int = struct.calcsize(fmtPagina)
 
 class Chave:
     def __init__(self, id: int, offset: int):
@@ -44,10 +44,10 @@ def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
     arvore.write(struct.pack("H", pag.numChaves))   #H  = fmtNumChaves da Pagina
 
     for i in range(ORDEM-1):                        #HH = fmtID + fmtOffset de cada Chave
-        arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
+        arvore.write(struct.pack("hh", pag.chaves[i].id, pag.chaves[i].offset))
 
     for i in range(ORDEM):                          #H  = fmtFilho de cada referencia de Filho
-        arvore.write(struct.pack("H", pag.filhos[i]))
+        arvore.write(struct.pack("b", pag.filhos[i]))
 
 
 
@@ -92,7 +92,10 @@ def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.Buffe
     novaRaiz.filhos[1] = filhoDpro
 
     arvore.seek(0,2)
-    rrnRaiz = ((arvore.tell()-TAMCABECALHO)//TAMPAGINA)-1
+    if rrnRaiz == NULO:
+        rrnRaiz = 0
+    else:
+        rrnRaiz = (arvore.tell()/TAMPAGINA - TAMCABECALHO)-1
     arvore.seek(0,0)           
     arvore.write(struct.pack(fmtCabecalho, rrnRaiz))       #ATUALIZA referencia da raiz
     
@@ -191,8 +194,8 @@ def construir_indices():
         arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))
 
     with open('games.dat', 'rb') as games, open("btree.dat", "r+b") as arvoreB:
-        rrnRaiz = 0
-        arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))
+        # rrnRaiz = 0
+        # arvoreB.write(struct.pack(fmtCabecalho, rrnRaiz))
         
         buffer = games.read(2)
 
@@ -251,11 +254,12 @@ def executar_operacoes(nome_arquivo):
 def imprime_arvore():
     try:
         with open("btree.dat", "rb") as arvoreB:
-            print("\n---------> ARVORE LEGAL <---------\n")
+            print("\n---------> ARVORE LEGAL <---------")
             raiz = struct.unpack(fmtCabecalho, arvoreB.read(TAMCABECALHO))[0]
-            numPaginas = (arvoreB.seek(0, 2).tell() - TAMCABECALHO)/fmtPagina #vai pro final e conta onde é o final
+            arvoreB.seek(0, 2)
+            numPaginas = (arvoreB.tell() - TAMCABECALHO)//TAMPAGINA #vai pro final e conta onde é o final
             for i in range(numPaginas):
-                print("\n")
+                print("")
                 if i == raiz:
                     print("---------------- RAIZ ------------------")
 
@@ -303,7 +307,7 @@ def main():
             arquivo_ops = sys.argv[2]
             executar_operacoes(arquivo_ops)
 
-    elif flag == '-c':
+    elif flag == '-p':
         imprime_arvore()
         
     else:
