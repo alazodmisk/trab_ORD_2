@@ -12,9 +12,6 @@ NULO: int = -1
 fmtCabecalho = "h" ##Indica a raíz da Árvore
 TAMCABECALHO: int = sys.getsizeof(fmtCabecalho)
 
-TAMID: int = sys.getsizeof("H")
-TAMOFFSET: int = sys.getsizeof("H")
-TAMFILHO: int = sys.getsizeof("h")
 fmtPagina = f"H{2*(ORDEM-1)}H{ORDEM}h" #numChaves chaves filhos
 TAMPAGINA: int = sys.getsizeof(fmtPagina)
 
@@ -30,7 +27,7 @@ class Pagina:
         self.filhos = [NULO] * ORDEM
 
 
-
+#Func auxiliar de TUDO
 def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
     arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
     buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
@@ -41,36 +38,36 @@ def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
     pag.filhos = list(buffer[2*(ORDEM-1) + 1:])
     return pag
 
-
+#Func auxiliar de TUDO
 def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
     arvore.seek(rrnAtual*TAMPAGINA +TAMCABECALHO, 0)
-    arvore.write(struct.pack("H", pag.numChaves))
-    for i in range(ORDEM-1):
+    arvore.write(struct.pack("H", pag.numChaves))   #H  = fmtNumChaves da Pagina
+
+    for i in range(ORDEM-1):                        #HH = fmtID + fmtOffset de cada Chave
         arvore.write(struct.pack("HH", pag.chaves[i].id, pag.chaves[i].offset))
-    for i in range(ORDEM):
+
+    for i in range(ORDEM):                          #H  = fmtFilho de cada referencia de Filho
         arvore.write(struct.pack("H", pag.filhos[i]))
 
-
+#Func auxiliar de TUDO
 def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
-    # pagOrig = carregaPagina(arvore, pagRRN)
-    
-    listChaveTemp = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
-    listFilhoTemp = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
+    tempChave = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
+    tempFilho = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
     metade = ORDEM // 2
     pagOrig = Pagina()
     pagNova = Pagina()
 
     for i in range(metade):
-        pagOrig.chaves[i] = listChaveTemp[i]
+        pagOrig.chaves[i]  = tempChave[i]
+        pagOrig.filhos[i]  = tempFilho[i]
         pagOrig.numChaves += 1
-        pagOrig.filhos[i] = listFilhoTemp[i]
-    pagOrig.filhos[metade] = listFilhoTemp[metade]
+    pagOrig.filhos[metade] = tempFilho[metade]
 
     for i in range(metade+1, ORDEM):
-        pagNova.chaves[i-metade-1] = listChaveTemp[i]
+        pagNova.chaves[i-metade-1] = tempChave[i]
+        pagNova.filhos[i-metade-1] = tempFilho[i]
         pagNova.numChaves += 1
-        pagNova.filhos[i-metade-1] = listFilhoTemp[i]
-    pagNova.filhos[ORDEM-metade-1] = listFilhoTemp[ORDEM]
+    pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
 
     escreveNaArvore(pagOrig, pagRRN, arvore)
     arvore.seek(0,2)
@@ -80,11 +77,40 @@ def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvor
 
     arvore.seek(0,0)
 
-    chavePromovida = listChaveTemp[metade]
+    chavePromovida = tempChave[metade]
     rrnNovaPagina = rrnfim
     return chavePromovida, rrnNovaPagina
 
 
+
+#Func auxiliar de insereNaArvore(), insercao()
+def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
+    novaRaiz = Pagina()                                     #CRIA nova raiz
+    novaRaiz.numChaves = 1
+    novaRaiz.chaves[0] = chavePro
+    novaRaiz.filhos[0] = rrnRaiz
+    novaRaiz.filhos[1] = filhoDpro
+
+    arvore.seek(0,2)
+    rrnRaiz = ((arvore.tell()-TAMCABECALHO)//TAMPAGINA)-1
+    arvore.seek(0,0)           
+    arvore.write(struct.pack(fmtCabecalho, rrnRaiz))       #ATUALIZA referencia da raiz
+    
+    escreveNaArvore(novaRaiz, rrnRaiz, arvore)             #ESCREVE nova raiz
+    
+#Func auxiliar de insereNaArvore(), buscaNaArvore()
+def buscaNaPagina(chave: Chave, pag: Pagina):
+    pos = 0
+    while(pos < pag.numChaves and chave.id > pag.chaves[pos].id):
+        pos += 1
+    if pos < pag.numChaves and chave == pag.chaves[pos]:
+        return True, pos
+    else:
+        return False, pos
+
+
+
+#Func Principal de contruir_indices()
 def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == NULO:
         return chave, NULO, True
@@ -111,17 +137,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
     return chavePro, filhoDpro, True
 
-
-def buscaNaPagina(chave: Chave, pag: Pagina):
-    pos = 0
-    while(pos < pag.numChaves and chave.id > pag.chaves[pos].id):
-        pos += 1
-    if pos < pag.numChaves and chave == pag.chaves[pos]:
-        return True, pos
-    else:
-        return False, pos
-
-
+#Func Principal de contruir_indices()
 def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return False, None, None
@@ -133,7 +149,42 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         else:
             return buscaNaArvore(chave, pagina.filhos[pos], arvore)
 
+#Func Principal de executar_operacoes()
+def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
+    referencia = Chave(id, NULO)
+    arvore.seek(0,0)
+    rrnRaiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))[0]
+    achou, rrn, pos = buscaNaArvore(referencia, rrnRaiz, arvore)
+    if achou:
+        referencia.offset = carregaPagina(arvore, rrn).chaves[pos].offset
+        jogos.seek(referencia.offset, 0)
+        tam = int.from_bytes(jogos.read(2), 'little')
+        registro = jogos.read(tam).decode()
+        print(f"Registro : {registro} ")
+    else:
+        print(f"Registro {id} NÃO encontrado...")
 
+
+#Func Principal de executar_operacoes()
+def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str):
+    jogos.seek(0,2)
+    offset = jogos.tell()
+    jogos.write(len(registro).to_bytes(2,'little'))
+    jogos.write(registro.encode())
+
+    buffer = registro.split("|",1)
+    id = int(buffer[0])
+
+    arvore.seek(0,0)
+    rrnRaiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))[0]
+    chavePro, filhoDpro, promo = insereNaArvore(Chave(id,offset), rrnRaiz, arvore)
+
+    if promo:                           #raiz promoveu
+        atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
+
+
+
+#Func FLAG -b
 def construir_indices():
     offset = 0
     arvoreB = open("btree.dat", "r+b")
@@ -161,53 +212,7 @@ def construir_indices():
     arvoreB.close()
     return None
 
-def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
-    novaRaiz = Pagina()                                     #CRIA nova raiz
-    novaRaiz.numChaves = 1
-    novaRaiz.chaves[0] = chavePro
-    novaRaiz.filhos[0] = rrnRaiz
-    novaRaiz.filhos[1] = filhoDpro
-
-    arvore.seek(0,2)
-    rrnRaiz = ((arvore.tell()-TAMCABECALHO)//TAMPAGINA)-1
-    arvore.seek(0,0)           
-    arvore.write(struct.pack(fmtCabecalho, rrnRaiz))       #ATUALIZA referencia da raiz
-    
-    escreveNaArvore(novaRaiz, rrnRaiz, arvore)             #ESCREVE nova raiz
-    
-
-def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
-    referencia = Chave(id, NULO)
-    arvore.seek(0,0)
-    rrnRaiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))[0]
-    achou, rrn, pos = buscaNaArvore(referencia, rrnRaiz, arvore)
-    if achou:
-        referencia.offset = carregaPagina(arvore, rrn).chaves[pos].offset
-        jogos.seek(referencia.offset, 0)
-        tam = int.from_bytes(jogos.read(2), 'little')
-        registro = jogos.read(tam).decode()
-        print(f"Registro : {registro} ")
-    else:
-        print(f"Registro {id} NÃO encontrado...")
-
-
-def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str):
-    jogos.seek(0,2)
-    offset = jogos.tell()
-    jogos.write(len(registro).to_bytes(2,'little'))
-    jogos.write(registro.encode())
-
-    buffer = registro.split("|",1)
-    id = int(buffer[0])
-
-    arvore.seek(0,0)
-    rrnRaiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))[0]
-    chavePro, filhoDpro, promo = insereNaArvore(Chave(id,offset), rrnRaiz, arvore)
-
-    if promo:                           #raiz promoveu
-        atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
-
-
+#Func FLAG -e
 def executar_operacoes(nome_arquivo):
     print(f"\n-------> Executando operações do arquivo: {nome_arquivo} <-------\n")
 
@@ -241,7 +246,7 @@ def executar_operacoes(nome_arquivo):
     except FileNotFoundError:
         print("Erro: arquivo de operações/jogos/arvore não encontrado.")
 
-
+#Func Flag -p
 def imprime_arvore():
     try:
         with open("btree.dat", "rb") as arvoreB:
@@ -275,7 +280,6 @@ def imprime_arvore():
 
     except FileNotFoundError:
         print("Erro: arquivo de arvore não encontrado")
-
 
 
 
