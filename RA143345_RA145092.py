@@ -12,7 +12,12 @@ NULO: int = -1
 fmtCabecalho = "h" ##Indica a raíz da Árvore
 TAMCABECALHO: int = struct.calcsize(fmtCabecalho)
 
-fmtPagina = f"B{2*(ORDEM-1)}h{ORDEM}b" #numChaves chaves filhos
+fmtNumChaves = "B"
+fmtId = "h"
+fmtOffset = "h"
+fmtfilhos = "h"
+
+fmtPagina = f"{1}{fmtNumChaves}{2*(ORDEM-1)}{fmtId}{ORDEM}{fmtfilhos}" #numChaves chaves filhos
 TAMPAGINA: int = struct.calcsize(fmtPagina)
 
 class Chave:
@@ -29,25 +34,32 @@ class Pagina:
 
 #Func auxiliar de TUDO
 def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
-    arvore.seek(rrn*TAMPAGINA + TAMCABECALHO, 0)
-    buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))
+    arvore.seek(TAMCABECALHO, 0)
+    arvore.seek(rrn*TAMPAGINA, 0)
+
+    buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA)) #Retorna TUPLA
     pag = Pagina()
-    pag.numChaves = buffer[0]
+
+    pag.numChaves = buffer[0]                                       #numChaves
     for i in range(ORDEM-1):
-        pag.chaves[i] = Chave(buffer[(i*2)+1], buffer[(i*2)+2])
-    pag.filhos = list(buffer[2*(ORDEM-1) + 1:])
+        pag.chaves[i] = Chave(buffer[(i*2)+1], buffer[(i*2)+2])     #Chaves
+    for i in range(ORDEM):
+        pag.filhos[i] = buffer[(2*(ORDEM-1)+1) + i]                 #Filhos
+
     return pag
 
 #Func auxiliar de TUDO
-def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
-    arvore.seek((rrnAtual*TAMPAGINA +TAMCABECALHO), 0)
-    arvore.write(struct.pack("H", pag.numChaves))   #H  = fmtNumChaves da Pagina
+def escreveNaArvore(pag: Pagina, rrn: int, arvore: io.BufferedRandom):
+    arvore.seek(TAMCABECALHO, 0)
+    arvore.seek(rrn*TAMPAGINA, 0)
 
-    for i in range(ORDEM-1):                        #HH = fmtID + fmtOffset de cada Chave
-        arvore.write(struct.pack("hh", pag.chaves[i].id, pag.chaves[i].offset))
+    arvore.write(struct.pack(f"{fmtNumChaves}", pag.numChaves))   #H  = fmtNumChaves da Pagina
 
-    for i in range(ORDEM):                          #H  = fmtFilho de cada referencia de Filho
-        arvore.write(struct.pack("b", pag.filhos[i]))
+    for i in range(ORDEM-1):                        #hh = fmtID + fmtOffset de cada Chave
+        arvore.write(struct.pack(f"{fmtId}{fmtOffset}", pag.chaves[i].id, pag.chaves[i].offset))
+
+    for i in range(ORDEM):                          #h  = fmtFilho de cada referencia de Filho
+        arvore.write(struct.pack(f"{fmtfilhos}", pag.filhos[i]))
 
 
 
@@ -55,7 +67,7 @@ def escreveNaArvore(pag: Pagina, rrnAtual: int, arvore: io.BufferedRandom):
 def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
     tempChave = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
     tempFilho = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
-    metade = ORDEM // 2
+    metade = (ORDEM + 1) // 2
     pagOrig = Pagina()
     pagNova = Pagina()
 
@@ -69,7 +81,7 @@ def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvor
         pagNova.chaves[i-metade-1] = tempChave[i]
         pagNova.filhos[i-metade-1] = tempFilho[i]
         pagNova.numChaves += 1
-    pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
+    pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM+1]
 
     escreveNaArvore(pagOrig, pagRRN, arvore)
     arvore.seek(0,2)
@@ -95,7 +107,7 @@ def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.Buffe
     if rrnRaiz == NULO:
         rrnRaiz = 0
     else:
-        rrnRaiz = (arvore.tell()/TAMPAGINA - TAMCABECALHO)-1
+        rrnRaiz = ((arvore.tell() - TAMCABECALHO)/TAMPAGINA)-1
     arvore.seek(0,0)           
     arvore.write(struct.pack(fmtCabecalho, rrnRaiz))       #ATUALIZA referencia da raiz
     
@@ -137,10 +149,10 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         escreveNaArvore(pag, rrnAtual, arvore)
         return None, None, False
     
-    divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
+    chavePro, filhoDpro = divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
     return chavePro, filhoDpro, True
 
-#Func Principal de contruir_indices()
+#Func Principal de executar_operacoes()
 def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return False, None, None
