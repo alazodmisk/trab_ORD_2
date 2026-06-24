@@ -33,32 +33,31 @@ class Pagina:
 
 
 #Func auxiliar de TUDO
-def carregaPagina(arvore: io.BufferedRandom, rrn: int) -> Pagina:
+def carregaPagina(rrn: int, arvore: io.BufferedRandom) -> Pagina:
     arvore.seek(TAMCABECALHO, 0)
-    arvore.seek(rrn*TAMPAGINA, 0)
+    arvore.seek(rrn*TAMPAGINA, 1)
 
-    buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA)) #Retorna TUPLA
+    buffer = struct.unpack(fmtPagina, arvore.read(TAMPAGINA))       #Retorna TUPLA
     pag = Pagina()
 
     pag.numChaves = buffer[0]                                       #numChaves
     for i in range(ORDEM-1):
-        pag.chaves[i] = Chave(buffer[(i*2)+1], buffer[(i*2)+2])     #Chaves
+        pag.chaves[i] = Chave(buffer[(2*i) +1], buffer[(2*i) +2])     #Chaves[]
     for i in range(ORDEM):
-        pag.filhos[i] = buffer[(2*(ORDEM-1)+1) + i]                 #Filhos
+        pag.filhos[i] = buffer[(2*(ORDEM-1) +1) +i]                 #Filhos[]
 
     return pag
 
 #Func auxiliar de TUDO
 def escreveNaArvore(pag: Pagina, rrn: int, arvore: io.BufferedRandom):
     arvore.seek(TAMCABECALHO, 0)
-    arvore.seek(rrn*TAMPAGINA, 0)
+    arvore.seek(rrn*TAMPAGINA, 1)
 
-    arvore.write(struct.pack(f"{fmtNumChaves}", pag.numChaves))   #H  = fmtNumChaves da Pagina
+    arvore.write(struct.pack(f"{fmtNumChaves}", pag.numChaves))     #B  = fmtNumChaves da Pagina
 
-    for i in range(ORDEM-1):                        #hh = fmtID + fmtOffset de cada Chave
+    for i in range(ORDEM-1):                                        #hh = fmtID + fmtOffset de cada Chave
         arvore.write(struct.pack(f"{fmtId}{fmtOffset}", pag.chaves[i].id, pag.chaves[i].offset))
-
-    for i in range(ORDEM):                          #h  = fmtFilho de cada referencia de Filho
+    for i in range(ORDEM):                                          #h  = fmtFilho de cada referencia de Filho
         arvore.write(struct.pack(f"{fmtfilhos}", pag.filhos[i]))
 
 
@@ -130,7 +129,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == NULO:
         return chave, NULO, True
     
-    pag = carregaPagina(arvore, rrnAtual)
+    pag = carregaPagina(rrnAtual, arvore)
     achou, pos = buscaNaPagina(chave, pag)
     
     if achou:
@@ -157,7 +156,7 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == None:
         return False, None, None
     else:
-        pagina = carregaPagina(arvore, rrnAtual)
+        pagina = carregaPagina(rrnAtual, arvore)
         achou, pos = buscaNaPagina(chave, pagina)
         if achou:
             return achou, rrnAtual, pos
@@ -171,7 +170,7 @@ def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
     rrnRaiz = struct.unpack(fmtCabecalho, arvore.read(TAMCABECALHO))[0]
     achou, rrn, pos = buscaNaArvore(referencia, rrnRaiz, arvore)
     if achou:
-        referencia.offset = carregaPagina(arvore, rrn).chaves[pos].offset
+        referencia.offset = carregaPagina(rrn, arvore).chaves[pos].offset
         jogos.seek(referencia.offset, 0)
         tam = int.from_bytes(jogos.read(2), 'little')
         registro = jogos.read(tam).decode()
@@ -268,20 +267,22 @@ def imprime_arvore():
         with open("btree.dat", "rb") as arvoreB:
             print("\n---------> ARVORE LEGAL <---------")
             raiz = struct.unpack(fmtCabecalho, arvoreB.read(TAMCABECALHO))[0]
-            arvoreB.seek(0, 2)
-            numPaginas = (arvoreB.tell() - TAMCABECALHO)//TAMPAGINA #vai pro final e conta onde é o final
-            for i in range(numPaginas):
+            buffer = arvoreB.read(TAMPAGINA)
+            
+
+            while buffer != b'':
+                i = 0
                 print("")
+                tupla = struct.unpack(fmtPagina, buffer)
                 if i == raiz:
                     print("---------------- RAIZ ------------------")
 
                 pag = Pagina()
-                registro = struct.unpack(fmtPagina, arvoreB.read(TAMPAGINA))
-                pag.numChaves = registro[0]
+                pag.numChaves = tupla[0]
                 for j in range(ORDEM-1):
-                    pag.chaves[j] = Chave(registro[(j*2)+1], registro[(j*2)+2])
+                    pag.chaves[j] = Chave(tupla[(j*2)+1], tupla[(j*2)+2])
                 for j in range(ORDEM):
-                    pag.filhos[j] = registro[(ORDEM * 2 - 1) + j]
+                    pag.filhos[j] = tupla[(ORDEM * 2 - 1) + j]
                 
                 print("Página " + i + ":")
                 print("Chaves : ")
@@ -296,6 +297,8 @@ def imprime_arvore():
 
                 if i == raiz:
                     print("----------------------------------------")
+                buffer = arvoreB.read(TAMPAGINA)
+            print("---------> ARVORE LEGAL <---------")
 
     except FileNotFoundError:
         print("Erro: arquivo de arvore não encontrado")
