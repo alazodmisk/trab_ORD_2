@@ -82,35 +82,29 @@ def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvor
     até antes da metade (pagOrig) e após a metade (pagNova).
     - Retorna a Chave na metade da lista temporária e RRN de _pagNova_. '''
 
-    chValidas = pagOrig.chaves[:pagOrig.numChaves]
-    fiValidos = pagOrig.filhos[:pagOrig.numChaves+1]
-
-    tempChave = chValidas[:posLista]   + [chaveNova] + chValidas[posLista:]
-    tempFilho = fiValidos[:posLista+1] + [filhoDpro] + fiValidos[posLista+1:]
-    metade = len(chValidas)// 2
-    chPromo = tempChave[metade]
-
-    pag1 = Pagina()
-    pag2 = Pagina()
+    tempChave = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
+    tempFilho = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
+    metade = ORDEM // 2
+    pagOrig = Pagina()
+    pagNova = Pagina()
 
     for i in range(metade):
-        pag1.chaves[i]  = tempChave[i]
-        pag1.filhos[i]  = tempFilho[i]
-        pag1.numChaves += 1
-    pag1.filhos[metade] = tempFilho[metade]
+        pagOrig.chaves[i]  = tempChave[i]
+        pagOrig.filhos[i]  = tempFilho[i]
+        pagOrig.numChaves += 1
+    pagOrig.filhos[metade] = tempFilho[metade]
 
     for i in range(metade+1, ORDEM):
-        pag2.chaves[i-metade-1] = tempChave[i]
-        pag2.filhos[i-metade-1] = tempFilho[i]
-        pag2.numChaves += 1
-    pag2.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
+        pagNova.chaves[i-metade-1] = tempChave[i]
+        pagNova.filhos[i-metade-1] = tempFilho[i]
+        pagNova.numChaves += 1
+    pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
 
-    escreveNaArvore(pag1, pagRRN, arvore)
+    escreveNaArvore(pagOrig, pagRRN, arvore)
     fimRRN = novoRrn(arvore)
-    escreveNaArvore(pag2, fimRRN, arvore)
+    escreveNaArvore(pagNova, fimRRN, arvore)
 
-
-    return chPromo, fimRRN    # chavePromovida, novoRRN 
+    return tempChave[metade], fimRRN    # chavePromovida, novoRRN 
 
 # Func auxiliar de insereNaArvore(), insercao()
 def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
@@ -178,7 +172,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     pag = carregaPagina(rrnAtual, arvore)
     achou, pos = buscaNaPagina(chave, pag)
     
-    if achou:                       # Não permite inserções de IDs repetidos
+    if achou:                               # Não permite inserções de IDs repetidos
         return None, None, False
     
     chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos], arvore)
@@ -187,7 +181,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         return None, filhoDpro, False
     
     if pag.numChaves < (ORDEM-1):
-        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:ORDEM-2]
+        pag.chaves = pag.chaves[:pos]   +[chavePro] + pag.chaves[pos:ORDEM-2]
         pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:ORDEM-1]
         pag.numChaves += 1
 
@@ -202,6 +196,8 @@ def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
     ''' Vaculha *arvore* a partir de sua raiz por uma chave com *id*. Caso
     encontre, extrai seu offset e faz leitura em *jogos*. '''
 
+    print(f" >> Busca Registro : {id}")
+
     referencia = Chave(id, NULO)
     arvore.seek(0,0)
     rrnRaiz = struct.unpack(fmtHeader, arvore.read(TAMHEADER))[0]
@@ -214,9 +210,9 @@ def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
 
         tam = int.from_bytes(jogos.read(2), 'little')
         registro = jogos.read(tam).decode()
-        print(f" >> Busca Registro : {id}\n    - {registro} ")
+        print(f"    - {registro} ")
     else:
-        print(f" >> Busca Registro {id} NÃO encontrado...")
+        print(f"    - NÃO ENCONTRADO...")
 
 # Func Principal de executar_operacoes()
 def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str):
@@ -225,6 +221,7 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
 
     buffer = registro.split("|",2)
     id = int(buffer[0])
+
 
     jogos.seek(0,2)
     offset = jogos.tell()
@@ -240,9 +237,9 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
         jogos.write(len(registro).to_bytes(2,'little'))
         jogos.write(registro.encode())
         
-        print(f" >> Registro {id}:'{buffer[1]}' aceito. Inserção realizada.")
+        print(f" >> Insercao {id} : REALIZADA\n - '{buffer[0]} | {buffer[1]}'")
     else:
-        print(f" >> Chave '{id}' duplicada. Inserção interrompida.")
+        print(f" >> Insercao {id} : ERRO\n - Chave '{id}' duplicada")
 
 
 
@@ -257,7 +254,7 @@ def construir_indices():
         buffer = games.read(2)
 
         while buffer != b'':
-            tam = int.from_bytes(buffer, "little")
+            tam = int.from_bytes(buffer, 'little')
             buffer = games.read(tam).decode()
             
             registro = buffer.split("|", 1)
@@ -279,7 +276,7 @@ def construir_indices():
 
 # Func FLAG -e
 def executar_operacoes(nome_arquivo):
-    print(f"\n>>>>>>>>>>> Executando operações do arquivo: {nome_arquivo} <<<<<<<<<<<\n")
+    print(f"\n>>>>>>>>>>> Executando operações do arquivo: {nome_arquivo} <<<<<<<<<<<\n\n")
 
     try:
         with open(nome_arquivo, 'r', encoding='utf-8') as f, open("games.dat", 'r+b') as games, open("btree.dat", 'r+b') as arvoreB:
@@ -314,7 +311,7 @@ def executar_operacoes(nome_arquivo):
                     print("Comando não identificado. Por favor, verifique o arquivo de operações.")   
                 print("")
 
-        print(f">>>>>>>>>>> Operações de {nome_arquivo} executadas com sucesso!! <\n")
+        print(f"\n>>>>>>>>>>> Operações de {nome_arquivo} executadas com sucesso!! <<<<<<<\n")
         return None
 
     except FileNotFoundError:
