@@ -6,7 +6,7 @@ import io
 import sys
 import struct
 
-ORDEM: int = 7
+ORDEM: int = 15
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
@@ -237,9 +237,9 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
         jogos.write(len(registro).to_bytes(2,'little'))
         jogos.write(registro.encode())
         
-        print(f" >> Insercao {id} : REALIZADA\n - '{buffer[0]} | {buffer[1]}'")
+        print(f" >> Insercao {id} : REALIZADA\n    - '{buffer[0]} | {buffer[1]}'")
     else:
-        print(f" >> Insercao {id} : ERRO\n - Chave '{id}' duplicada")
+        print(f" >> Insercao {id} : ERRO - Chave '{id}' duplicada\n    - ...")
 
 
 
