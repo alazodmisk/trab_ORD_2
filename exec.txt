@@ -1,7 +1,5 @@
 
-b 406
+b 276
+b 514
 
-i 404|Thief: The Dark Project|1998|Stealth|Eidos Interactive|PC|
-i 405|Thief: The Dark Project|1998|Stealth|Eidos Interactive|PC|
 i 406|Thief: The Dark Project|1998|Stealth|Eidos Interactive|PC|
-i 407|Thief: The Dark Project|1998|Stealth|Eidos Interactive|PC|

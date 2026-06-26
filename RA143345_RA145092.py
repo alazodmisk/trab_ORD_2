@@ -6,7 +6,7 @@ import io
 import sys
 import struct
 
-ORDEM: int = 5
+ORDEM: int = 7
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
@@ -32,7 +32,7 @@ class Pagina:
 # Func auxiliar de TUDO
 def carregaPagina(rrn: int, arvore: io.BufferedRandom) -> Pagina:
     ''' Busca em *arvore* pulando o HEADER e *rrn* paginas. Achada a
-    pagina, retorna em formato Pagina() a leitura do arquivo '''
+    pagina, retorna a leitura do arquivo em formato Pagina(). '''
 
     arvore.seek(TAMHEADER, 0)
     arvore.seek(rrn*TAMPAGINA, 1)
@@ -52,8 +52,7 @@ def carregaPagina(rrn: int, arvore: io.BufferedRandom) -> Pagina:
 # Func auxiliar de TUDO
 def escreveNaArvore(pag: Pagina, rrn: int, arvore: io.BufferedRandom):
     ''' Posiciona-se em *arvore* pulando o cabecalho e *rrn* paginas, seja
-    para uma ja existente para atualiza-la ou no final do arquivo para escrita
-    de uma nova Pagina(). Posicionado escreve *pag* inteira. '''
+    para uma ja existente ou no final do arquivo. Assim, escreve *pag* inteira. '''
 
     arvore.seek(TAMHEADER, 0)
     arvore.seek(rrn*TAMPAGINA, 1)
@@ -76,42 +75,50 @@ def novoRrn(arvore: io.BufferedRandom) -> int:
 
 # Func auxiliar de insereNaArvore()
 def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
-    ''' Trata Overflow de Chaves em uma pagina *pagOrig*. Dessa forma, encontra *pagOrig* em *arvore*
-    de acordo com seu *pagRRN*, encontrada aloca temporariamente uma lista de suas Chaves e outra de
-    seus filhos, com isso, insere *chaveNova* e *filhoDpro* em suas respectivas listas de acordo com
-    *posLista* ja demarcada.
-     Após o alocamento temporário, _pagOrig_ é reinicializada e _pagNova_ é criada. Extraindo das listas
-    temporárias, as informações até a metade são enquadradas em _pagOrig_ e as informações após a metade
-    são enquadradas em _pagNova_. Para, respectivamente, termos uma sobrescrita e escrita em *arvore*.
-     Como retorno final, temos a Chave na metade da lista temporária e o RRN de _pagNova_. '''
+    ''' Trata Overflow de Chaves em uma pagina *pagOrig*.
+    - Encontra *pagOrig* em *arvore* de acordo com seu *pagRRN*. Aloca temporariamente uma lista de suas
+    Chaves e outra de seus filhos, inserindo *chaveNova* e *filhoDpro* de acordo com *posLista*.
+    - *pagOrig* é reinicializada e _pagNova_ é criada. Extraindo das listas temporárias, as informações
+    até antes da metade (pagOrig) e após a metade (pagNova).
+    - Retorna a Chave na metade da lista temporária e RRN de _pagNova_. '''
 
-    tempChave = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
-    tempFilho = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
-    metade = ORDEM // 2
-    pagOrig = Pagina()
-    pagNova = Pagina()
+    chValidas = pagOrig.chaves[:pagOrig.numChaves]
+    fiValidos = pagOrig.filhos[:pagOrig.numChaves+1]
+
+    tempChave = chValidas[:posLista]   + [chaveNova] + chValidas[posLista:]
+    tempFilho = fiValidos[:posLista+1] + [filhoDpro] + fiValidos[posLista+1:]
+    metade = len(chValidas)// 2
+    chPromo = tempChave[metade]
+
+    pag1 = Pagina()
+    pag2 = Pagina()
 
     for i in range(metade):
-        pagOrig.chaves[i]  = tempChave[i]
-        pagOrig.filhos[i]  = tempFilho[i]
-        pagOrig.numChaves += 1
-    pagOrig.filhos[metade] = tempFilho[metade]
+        pag1.chaves[i]  = tempChave[i]
+        pag1.filhos[i]  = tempFilho[i]
+        pag1.numChaves += 1
+    pag1.filhos[metade] = tempFilho[metade]
 
     for i in range(metade+1, ORDEM):
-        pagNova.chaves[i-metade-1] = tempChave[i]
-        pagNova.filhos[i-metade-1] = tempFilho[i]
-        pagNova.numChaves += 1
-    pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
+        pag2.chaves[i-metade-1] = tempChave[i]
+        pag2.filhos[i-metade-1] = tempFilho[i]
+        pag2.numChaves += 1
+    pag2.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
 
-    escreveNaArvore(pagOrig, pagRRN, arvore)
+    escreveNaArvore(pag1, pagRRN, arvore)
     fimRRN = novoRrn(arvore)
-    escreveNaArvore(pagNova, fimRRN, arvore)
+    escreveNaArvore(pag2, fimRRN, arvore)
 
 
-    return tempChave[metade], fimRRN    # chavePromovida, novoRRN 
+    return chPromo, fimRRN    # chavePromovida, novoRRN 
 
 # Func auxiliar de insereNaArvore(), insercao()
 def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
+    ''' Para casos de divisão da pagina raiz da arvore.
+    Cria uma nova pagina _novaRaiz_ para ser promovida, recebendo *chavePro* como unica
+    chave e *rrnRaiz* e *filhoDpro* como seus filhos. Acessa *arvore* e atualiza seu 
+    cabecalho com RRN da nova Raiz. '''
+    
     novaRaiz = Pagina()                                     #CRIA nova raiz
     novaRaiz.numChaves = 1
     novaRaiz.chaves[0] = chavePro
@@ -130,6 +137,9 @@ def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.Buffe
     
 # Func auxiliar de insereNaArvore(), buscaNaArvore()
 def buscaNaPagina(chave: Chave, pag: Pagina):
+    ''' Vasculha *pagina* procurando por *chave* a partir de seu id. Caso
+    encontre ou não, retorna onde está/poderia estar. '''
+
     pos = 0
     while(pos < pag.numChaves and chave.id > pag.chaves[pos].id):
         pos += 1
@@ -138,38 +148,12 @@ def buscaNaPagina(chave: Chave, pag: Pagina):
     else:
         return False, pos
 
-
-
-# Func Principal de contruir_indices(), auxiliar de insercao()
-def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
-    if rrnAtual == NULO:
-        return chave, NULO, True
-    
-    pag = carregaPagina(rrnAtual, arvore)
-    achou, pos = buscaNaPagina(chave, pag)
-    
-    if achou:
-        print("- Chave duplicada - Insercao interrompida.")
-        return None, None, False
-    
-    chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos], arvore)
-
-    if promo == False:
-        return None, filhoDpro, False
-    
-    if pag.numChaves < (ORDEM-1):
-        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:ORDEM-1]
-        pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:ORDEM]
-        pag.numChaves += 1
-
-        escreveNaArvore(pag, rrnAtual, arvore)
-        return None, NULO, False
-    else:
-        chavePro, filhoDpro = divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
-        return chavePro, filhoDpro, True
-
-# Func auxiliar de buscaNaArvore()
+# Func auxiliar de busca()
 def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
+    ''' Vasculha a pagina em *arvore* no RRN *rrnAtual*.
+    - Caso encontre *chave* retorna o RRN da pagina onde está, e sua posicao na mesma.
+    - Caso contrário, aplica uma recursão com um de seus filhos, até sair de uma folha. '''
+
     if rrnAtual == NULO:
         return False, NULO, NULO
     else:
@@ -180,23 +164,65 @@ def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         else:
             return buscaNaArvore(chave, pagina.filhos[pos], arvore)
 
+
+# Func Principal de contruir_indices(), auxiliar de insercao()
+def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
+    ''' Desce por *arvore* a partir de *rrnAtual* ate encontrar uma folha.
+    - Caso encontre *chave* no caminho interrompre o processo.
+    - Caso chegue numa folha comeca a recursao de insercao. Retorna a chave promovida
+    e seu filho a direita para chamada anterior, até haver uma insercao sem divisao. '''
+
+    if rrnAtual == NULO:
+        return chave, NULO, True
+    
+    pag = carregaPagina(rrnAtual, arvore)
+    achou, pos = buscaNaPagina(chave, pag)
+    
+    if achou:                       # Não permite inserções de IDs repetidos
+        return None, None, False
+    
+    chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos], arvore)
+
+    if not promo:
+        return None, filhoDpro, False
+    
+    if pag.numChaves < (ORDEM-1):
+        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:ORDEM-2]
+        pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:ORDEM-1]
+        pag.numChaves += 1
+
+        escreveNaArvore(pag, rrnAtual, arvore)
+        return None, NULO, False
+    
+    chavePro, filhoDpro = divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
+    return chavePro, filhoDpro, True
+
 # Func Principal de executar_operacoes()
 def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
+    ''' Vaculha *arvore* a partir de sua raiz por uma chave com *id*. Caso
+    encontre, extrai seu offset e faz leitura em *jogos*. '''
+
     referencia = Chave(id, NULO)
-    arvore.seek(0, 0)
+    arvore.seek(0,0)
     rrnRaiz = struct.unpack(fmtHeader, arvore.read(TAMHEADER))[0]
+
     achou, rrn, pos = buscaNaArvore(referencia, rrnRaiz, arvore)
+
     if achou:
         referencia.offset = carregaPagina(rrn, arvore).chaves[pos].offset
         jogos.seek(referencia.offset, 0)
+
         tam = int.from_bytes(jogos.read(2), 'little')
         registro = jogos.read(tam).decode()
-        print(f"Registro : {id}\n - {registro} ")
+        print(f" >> Busca Registro : {id}\n    - {registro} ")
     else:
-        print(f"Registro {id} NÃO encontrado...")
+        print(f" >> Busca Registro {id} NÃO encontrado...")
 
 # Func Principal de executar_operacoes()
 def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str):
+    ''' Tenta inserir (id,offset) de *registro* em *arvore*. Caso seja possivel
+    acessa *jogos* e escreve *registro*. '''
+
     buffer = registro.split("|",2)
     id = int(buffer[0])
 
@@ -288,11 +314,11 @@ def executar_operacoes(nome_arquivo):
                     print("Comando não identificado. Por favor, verifique o arquivo de operações.")   
                 print("")
 
-        print(f"\n > Operações de {nome_arquivo} executadas com sucesso!! <\n")
+        print(f">>>>>>>>>>> Operações de {nome_arquivo} executadas com sucesso!! <\n")
         return None
 
     except FileNotFoundError:
-        print("Erro: arquivo de operações/jogos/arvore não encontrado.")
+        print("Erro: arquivo de operações/games.dat/btree.dat não encontrado.\n")
 
 # Func Flag -p
 def imprime_arvore():
