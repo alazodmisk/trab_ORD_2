@@ -6,7 +6,7 @@ import io
 import sys
 import struct
 
-ORDEM: int = 7                              #Ordem é a quantidade de filhos de uma página
+ORDEM: int = 5
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
@@ -67,9 +67,24 @@ def escreveNaArvore(pag: Pagina, rrn: int, arvore: io.BufferedRandom):
     arvore.write(linha)
 
 
+# Func auxiliar de insereNaArvore(), atualizaRaiz()
+def novoRrn(arvore: io.BufferedRandom) -> int:
+    ''' Posiciona-se no final de *arvore* e retorna o RRN para inserções no final do arquivo. '''
+    arvore.seek(0,2)
+    offsetFim = arvore.tell()
+    return ((offsetFim - TAMHEADER)//TAMPAGINA)
 
-# Func auxiliar de insereNaArvore(), insercao()
+# Func auxiliar de insereNaArvore()
 def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvore: io.BufferedRandom, posLista: int):
+    ''' Trata Overflow de Chaves em uma pagina *pagOrig*. Dessa forma, encontra *pagOrig* em *arvore*
+    de acordo com seu *pagRRN*, encontrada aloca temporariamente uma lista de suas Chaves e outra de
+    seus filhos, com isso, insere *chaveNova* e *filhoDpro* em suas respectivas listas de acordo com
+    *posLista* ja demarcada.
+     Após o alocamento temporário, _pagOrig_ é reinicializada e _pagNova_ é criada. Extraindo das listas
+    temporárias, as informações até a metade são enquadradas em _pagOrig_ e as informações após a metade
+    são enquadradas em _pagNova_. Para, respectivamente, termos uma sobrescrita e escrita em *arvore*.
+     Como retorno final, temos a Chave na metade da lista temporária e o RRN de _pagNova_. '''
+
     tempChave = pagOrig.chaves[:posLista]   + [chaveNova] + pagOrig.chaves[posLista:]
     tempFilho = pagOrig.filhos[:posLista+1] + [filhoDpro] + pagOrig.filhos[posLista+1:]
     metade = ORDEM // 2
@@ -89,16 +104,11 @@ def divide(chaveNova: Chave, filhoDpro: int, pagOrig: Pagina, pagRRN: int, arvor
     pagNova.filhos[ORDEM-metade-1] = tempFilho[ORDEM]
 
     escreveNaArvore(pagOrig, pagRRN, arvore)
-    arvore.seek(0,2)
-    fim = arvore.tell()
-    rrnfim = ((fim-TAMHEADER)//TAMPAGINA)
-    escreveNaArvore(pagNova, rrnfim, arvore)
+    fimRRN = novoRrn(arvore)
+    escreveNaArvore(pagNova, fimRRN, arvore)
 
-    arvore.seek(0,0)
 
-    chavePromovida = tempChave[metade]
-    rrnNovaPagina = rrnfim
-    return chavePromovida, rrnNovaPagina
+    return tempChave[metade], fimRRN    # chavePromovida, novoRRN 
 
 # Func auxiliar de insereNaArvore(), insercao()
 def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.BufferedRandom):
@@ -111,8 +121,7 @@ def atualizaRaiz(chavePro: Chave, rrnRaiz: int, filhoDpro: int, arvore: io.Buffe
     if rrnRaiz == NULO:
         rrnRaiz = 0
     else:
-        arvore.seek(0,2)
-        rrnRaiz = ((arvore.tell() - TAMHEADER)//TAMPAGINA)
+        rrnRaiz = novoRrn(arvore)
     arvore.seek(0,0)           
     arvore.write(struct.pack(fmtHeader, rrnRaiz))       #ATUALIZA referencia da raiz
     
@@ -131,7 +140,7 @@ def buscaNaPagina(chave: Chave, pag: Pagina):
 
 
 
-# Func Principal de contruir_indices()
+# Func Principal de contruir_indices(), auxiliar de insercao()
 def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == NULO:
         return chave, NULO, True
@@ -141,7 +150,7 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     
     if achou:
         print("- Chave duplicada - Insercao interrompida.")
-        return None, NULO, False
+        return None, None, False
     
     chavePro, filhoDpro, promo = insereNaArvore(chave, pag.filhos[pos], arvore)
 
@@ -149,19 +158,17 @@ def insereNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
         return None, filhoDpro, False
     
     if pag.numChaves < (ORDEM-1):
-        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:]
-        pag.chaves = pag.chaves[:ORDEM-1]
-        pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:]
-        pag.filhos = pag.filhos[:ORDEM]
+        pag.chaves = pag.chaves[:pos]   +  [chave]  + pag.chaves[pos:ORDEM-1]
+        pag.filhos = pag.filhos[:pos+1] +[filhoDpro]+ pag.filhos[pos+1:ORDEM]
         pag.numChaves += 1
 
         escreveNaArvore(pag, rrnAtual, arvore)
-        return None, None, False
+        return None, NULO, False
     else:
         chavePro, filhoDpro = divide(chavePro, filhoDpro, pag, rrnAtual, arvore, pos)
         return chavePro, filhoDpro, True
 
-# Func Principal de executar_operacoes()
+# Func auxiliar de buscaNaArvore()
 def buscaNaArvore(chave: Chave, rrnAtual: int, arvore: io.BufferedRandom):
     if rrnAtual == NULO:
         return False, NULO, NULO
@@ -190,20 +197,26 @@ def busca(arvore: io.BufferedRandom, jogos: io.BufferedReader, id: int):
 
 # Func Principal de executar_operacoes()
 def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str):
-    jogos.seek(0,2)
-    offset = jogos.tell()
-    jogos.write(len(registro).to_bytes(2,'little'))
-    jogos.write(registro.encode())
-
-    buffer = registro.split("|",1)
+    buffer = registro.split("|",2)
     id = int(buffer[0])
 
+    jogos.seek(0,2)
+    offset = jogos.tell()
+    
     arvore.seek(0,0)
     rrnRaiz = struct.unpack(fmtHeader, arvore.read(TAMHEADER))[0]
     chavePro, filhoDpro, promo = insereNaArvore(Chave(id,offset), rrnRaiz, arvore)
 
-    if promo:                           #raiz promoveu
-        atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
+    if promo or filhoDpro == NULO:                           #raiz promoveu
+        if promo:
+            rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
+
+        jogos.write(len(registro).to_bytes(2,'little'))
+        jogos.write(registro.encode())
+        
+        print(f" >> Registro {id}:'{buffer[1]}' aceito. Inserção realizada.")
+    else:
+        print(f" >> Chave '{id}' duplicada. Inserção interrompida.")
 
 
 
@@ -216,7 +229,6 @@ def construir_indices():
     offset = 0
     with open('games.dat', 'rb') as games, open("btree.dat", "r+b") as arvoreB:        
         buffer = games.read(2)
-        k = 0
 
         while buffer != b'':
             tam = int.from_bytes(buffer, "little")
@@ -225,17 +237,18 @@ def construir_indices():
             registro = buffer.split("|", 1)
             indice = int(registro[0])
 
+            arvoreB.seek(0, 0)
+            rrnRaiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
+
             chavePro, filhoDpro, promo = insereNaArvore(Chave(indice,offset), rrnRaiz, arvoreB)
 
-            if promo:                           #raiz promoveu
-                print("RAIZ ATUALIZADA")
-                rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvoreB)             #ESCREVE nova raiz
+            if promo:                                                           #raiz promoveu
+                rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvoreB) 
                 
-
             offset += tam + 2
             buffer = games.read(2)
         
-
+    print(f"\n >> ORDEM {ORDEM} : Arvore 'btree.dat' construída com sucesso. \n")
     return None
 
 # Func FLAG -e
@@ -285,11 +298,11 @@ def executar_operacoes(nome_arquivo):
 def imprime_arvore():
     try:
         with open("btree.dat", "rb") as arvoreB:
-            print("\n>>>>>>>>>> ARVORE LEGAL <<<<<<<<<<")
+            print("\n>>>>>>>>>>>>>>>>> ARVORE LEGAL <<<<<<<<<<<<<<<<<<")
             raiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
-            buffer = arvoreB.read(TAMPAGINA)
-            
             numPag = 0
+
+            buffer = arvoreB.read(TAMPAGINA)
             while buffer != b'':
                 tupla = struct.unpack(fmtPagina, buffer)
                 pag = Pagina()
@@ -298,11 +311,11 @@ def imprime_arvore():
                 for i in range(ORDEM-1):
                     pag.chaves[i] = Chave(tupla[(i*2) +1], tupla[(i*2) +2])
                 for i in range(ORDEM):
-                    pag.filhos[i] = tupla[(2*(ORDEM-1) + 1) + i]
+                    pag.filhos[i] = tupla[(2*(ORDEM-1) +1) +i]
                 
                 print("\n")
                 if numPag == raiz:
-                    print("\n==================== RAIZ =====================")
+                    print("\n======================== RAIZ ===========================")
 
                 print(f"Página {numPag} :")
                 print("Chaves  : ", end="|")
@@ -316,11 +329,11 @@ def imprime_arvore():
                     print(f" {i} ", end="|")
 
                 if numPag == raiz:
-                    print("\n===============================================")
+                    print("\n=========================================================")
 
                 numPag += 1
                 buffer = arvoreB.read(TAMPAGINA)
-            print("\n\n>>>>>>>>>>>>>>> FIM <<<<<<<<<<<<<<\n")
+            print("\n\n>>>>>>>>>>>>>>>>>>>>> FIM <<<<<<<<<<<<<<<<<<<<<\n")
 
     except FileNotFoundError:
         print("Erro: arquivo de arvore não encontrado")
