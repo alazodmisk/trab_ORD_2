@@ -6,7 +6,7 @@ import io
 import sys
 import struct
 
-ORDEM: int = 15
+ORDEM: int = 6
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
@@ -271,7 +271,7 @@ def construir_indices():
             offset += tam + 2
             buffer = games.read(2)
         
-    print(f"\n >> ORDEM {ORDEM} : Arvore 'btree.dat' construída com sucesso. \n")
+    print(f"\n >> ORDEM {ORDEM} : Arvore 'btree.dat' construída. \n")
     return None
 
 # Func FLAG -e
