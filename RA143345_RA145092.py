@@ -260,9 +260,6 @@ def construir_indices():
                 registro = buffer.split("|", 1)
                 indice = int(registro[0])
 
-                arvoreB.seek(0, 0)
-                rrnRaiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
-
                 chavePro, filhoDpro, promo = insereNaArvore(Chave(indice,offset), rrnRaiz, arvoreB)
 
                 if promo:                                                           #raiz promoveu
