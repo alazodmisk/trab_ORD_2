@@ -6,7 +6,7 @@ import io
 import sys
 import struct
 
-ORDEM: int = 5
+ORDEM: int = 6
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
