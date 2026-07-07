@@ -6,11 +6,11 @@ import io
 import sys
 import struct
 
-ORDEM: int = 6
+ORDEM: int = 5
 NULO: int = -1
 
 # fmtNumChaves = "B" | fmtId = "h" | fmtOffset = "h" | fmtfilhos = "h"  
-# fmtPagina = f"{fmtNumChaves}{2*(ORDEM-1)}{fmtId}{ORDEM}{fmtfilhos}"
+# fmtPagina = f"{fmtNumChaves}{ORDEM-1}{fmtId + fmtOffset}{ORDEM}{fmtfilhos}"
 
 fmtHeader = '<h'                            #HEADER pra indicar Raiz
 TAMHEADER: int = struct.calcsize(fmtHeader)
@@ -232,7 +232,7 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
 
     if promo or filhoDpro == NULO:                           #raiz promoveu
         if promo:
-            rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
+            atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvore)
 
         jogos.write(len(registro).to_bytes(2,'little'))
         jogos.write(registro.encode())
@@ -245,33 +245,36 @@ def insercao(arvore: io.BufferedRandom, jogos: io.BufferedReader, registro: str)
 
 # Func FLAG -b
 def construir_indices():
-    with open("btree.dat", "wb") as arvoreB:
-        rrnRaiz = NULO
-        arvoreB.write(struct.pack(fmtHeader, rrnRaiz))
+    try:
+        with open('games.dat', 'rb') as games, open("btree.dat", "w+b") as arvoreB:
+            rrnRaiz = NULO
+            arvoreB.write(struct.pack(fmtHeader, rrnRaiz))
 
-    offset = 0
-    with open('games.dat', 'rb') as games, open("btree.dat", "r+b") as arvoreB:        
-        buffer = games.read(2)
-
-        while buffer != b'':
-            tam = int.from_bytes(buffer, 'little')
-            buffer = games.read(tam).decode()
-            
-            registro = buffer.split("|", 1)
-            indice = int(registro[0])
-
-            arvoreB.seek(0, 0)
-            rrnRaiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
-
-            chavePro, filhoDpro, promo = insereNaArvore(Chave(indice,offset), rrnRaiz, arvoreB)
-
-            if promo:                                                           #raiz promoveu
-                rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvoreB) 
-                
-            offset += tam + 2
+            offset = 0       
             buffer = games.read(2)
-        
-    print(f"\n >> ORDEM {ORDEM} : Arvore 'btree.dat' construída. \n")
+
+            while buffer != b'':
+                tam = int.from_bytes(buffer, 'little')
+                buffer = games.read(tam).decode()
+                
+                registro = buffer.split("|", 1)
+                indice = int(registro[0])
+
+                arvoreB.seek(0, 0)
+                rrnRaiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
+
+                chavePro, filhoDpro, promo = insereNaArvore(Chave(indice,offset), rrnRaiz, arvoreB)
+
+                if promo:                                                           #raiz promoveu
+                    rrnRaiz = atualizaRaiz(chavePro, rrnRaiz, filhoDpro, arvoreB) 
+                    
+                offset += tam + 2
+                buffer = games.read(2)
+            
+            print(f"\n >> ORDEM {ORDEM} : Arvore 'btree.dat' construída. \n")
+
+    except FileNotFoundError:
+        print(f"\n !! Arquivo 'games.dat' não encontrado; \n")
     return None
 
 # Func FLAG -e
@@ -321,7 +324,7 @@ def executar_operacoes(nome_arquivo):
 def imprime_arvore():
     try:
         with open("btree.dat", "rb") as arvoreB:
-            print("\n>>>>>>>>>>>>>>>>> ARVORE LEGAL <<<<<<<<<<<<<<<<<<")
+            print("\n>>>>>>>>>>>>>>>>>>> ÁRVORE B <<<<<<<<<<<<<<<<<<<<")
             raiz = struct.unpack(fmtHeader, arvoreB.read(TAMHEADER))[0]
             numPag = 0
 
@@ -359,7 +362,7 @@ def imprime_arvore():
             print("\n\n>>>>>>>>>>>>>>>>>>>>> FIM <<<<<<<<<<<<<<<<<<<<<\n")
 
     except FileNotFoundError:
-        print("Erro: arquivo de arvore não encontrado")
+        print("\nErro: arquivo de árvore não encontrado\n")
 
 
 
@@ -375,7 +378,7 @@ def main():
         
     elif flag == '-e':
         if len(sys.argv) < 3:
-            print("Erro: Para usar -e, você deve informar o arquivo de operações.")
+            print("\nErro: Para usar -e, você deve informar o arquivo de operações.\n")
         else:
             arquivo_ops = sys.argv[2]
             executar_operacoes(arquivo_ops)
